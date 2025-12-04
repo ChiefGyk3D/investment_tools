@@ -1,9 +1,29 @@
+"""Budget planner with allocation tracking and Excel export."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+
 def calculate_budget(monthly_income, budget_categories, actual_spending):
+    """
+    Calculate budget summary comparing budgeted vs actual spending.
+    
+    Args:
+        monthly_income: Total monthly income
+        budget_categories: Dict of category names to budgeted amounts
+        actual_spending: Dict of category names to actual spending amounts
+    
+    Returns:
+        Tuple of (DataFrame with budget summary, remaining income)
+    
+    Raises:
+        ValueError: If monthly income is not positive
+    """
+    if monthly_income <= 0:
+        raise ValueError("Monthly income must be positive")
+    
     # Calculate budget details
     results = []
     total_budget = sum(budget_categories.values())
@@ -33,6 +53,16 @@ def calculate_budget(monthly_income, budget_categories, actual_spending):
     return df, remaining_income
 
 def plot_budget_allocation(df, file_name):
+    """
+    Generate and save budget allocation charts.
+    
+    Args:
+        df: DataFrame with budget summary
+        file_name: Base name for output chart files
+    
+    Returns:
+        Tuple of (pie chart file path, bar chart file path)
+    """
     # Pie chart for budget allocation
     categories = df[df["Category"] != "Total"]
     plt.figure(figsize=(8, 8))
@@ -60,6 +90,11 @@ def plot_budget_allocation(df, file_name):
     return pie_chart_file, bar_chart_file
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -70,13 +105,20 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_charts_in_excel(file_name, pie_chart_file, bar_chart_file):
+    """Embed pie and bar charts into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        pie_chart_file: Path to the pie chart image
+        bar_chart_file: Path to the bar chart image
+    """
     workbook = load_workbook(file_name)
 
     # Add pie chart to a separate sheet
@@ -103,6 +145,12 @@ def embed_charts_in_excel(file_name, pie_chart_file, bar_chart_file):
 
 
 def export_to_excel(df, file_name):
+    """Export budget summary to Excel with formatting.
+    
+    Args:
+        df: DataFrame with budget summary
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Budget Summary")
     workbook = load_workbook(file_name)

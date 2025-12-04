@@ -1,3 +1,5 @@
+"""Long weekend planner based on U.S. federal holidays."""
+
 import datetime
 import calendar
 
@@ -7,6 +9,7 @@ FEDERAL_HOLIDAYS = {
     "Martin Luther King Jr. Day": "third_monday_january",
     "Presidents' Day": "third_monday_february",
     "Memorial Day": "last_monday_may",
+    "Juneteenth": (6, 19),  # Federal holiday since 2021
     "Independence Day": (7, 4),
     "Labor Day": "first_monday_september",
     "Columbus Day": "second_monday_october",
@@ -16,7 +19,16 @@ FEDERAL_HOLIDAYS = {
 }
 
 def calculate_holiday_date(year, holiday_rule):
-    """Calculate the date of a holiday given its rule."""
+    """
+    Calculate the date of a holiday given its rule.
+    
+    Args:
+        year: The year to calculate the holiday for
+        holiday_rule: Either a (month, day) tuple or a string rule like 'third_monday_january'
+    
+    Returns:
+        datetime.date object for the holiday
+    """
     month_map = {
         "january": 1,
         "february": 2,
@@ -56,20 +68,51 @@ def calculate_holiday_date(year, holiday_rule):
         return nth_weekday_in_month(year, month, weekday, n)
 
 def next_weekday_in_month(year, month, weekday):
-    """Get the first occurrence of a weekday in a month."""
+    """
+    Get the first occurrence of a weekday in a month.
+    
+    Args:
+        year: Year
+        month: Month (1-12)
+        weekday: Weekday constant from calendar module
+    
+    Returns:
+        datetime.date object
+    """
     for day in range(1, 8):
         if datetime.date(year, month, day).weekday() == weekday:
             return datetime.date(year, month, day)
 
 def last_weekday_in_month(year, month, weekday):
-    """Get the last occurrence of a weekday in a month."""
+    """
+    Get the last occurrence of a weekday in a month.
+    
+    Args:
+        year: Year
+        month: Month (1-12)
+        weekday: Weekday constant from calendar module
+    
+    Returns:
+        datetime.date object
+    """
     last_day = calendar.monthrange(year, month)[1]
     for day in range(last_day, last_day - 7, -1):
         if datetime.date(year, month, day).weekday() == weekday:
             return datetime.date(year, month, day)
 
 def nth_weekday_in_month(year, month, weekday, n):
-    """Get the nth occurrence of a weekday in a month."""
+    """
+    Get the nth occurrence of a weekday in a month.
+    
+    Args:
+        year: Year
+        month: Month (1-12)
+        weekday: Weekday constant from calendar module
+        n: Which occurrence (1=first, 2=second, etc.)
+    
+    Returns:
+        datetime.date object
+    """
     count = 0
     for day in range(1, calendar.monthrange(year, month)[1] + 1):
         if datetime.date(year, month, day).weekday() == weekday:
@@ -78,7 +121,21 @@ def nth_weekday_in_month(year, month, weekday, n):
                 return datetime.date(year, month, day)
 
 def suggest_long_weekends(year):
-    """Suggest long weekends for the given year."""
+    """
+    Suggest long weekends for the given year based on federal holidays.
+    
+    Args:
+        year: Year to plan long weekends for
+    
+    Returns:
+        List of suggestion strings
+    
+    Raises:
+        ValueError: If year is invalid
+    """
+    if year < 1900 or year > 9999:
+        raise ValueError("Year must be between 1900 and 9999")
+    
     suggestions = []
     for holiday, rule in FEDERAL_HOLIDAYS.items():
         holiday_date = calculate_holiday_date(year, rule)

@@ -1,25 +1,72 @@
+"""Emergency fund calculator with savings progress tracking."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+# Maximum months to prevent infinite loops
+MAX_SAVINGS_MONTHS = 1200  # 100 years
+
+
 def calculate_emergency_fund(monthly_expenses, coverage_months, current_savings=0, contribution_amount=0, contribution_frequency="monthly"):
+    """
+    Calculate emergency fund savings plan.
+    
+    Args:
+        monthly_expenses: Total monthly expenses
+        coverage_months: Desired emergency fund coverage in months
+        current_savings: Current savings amount (default 0)
+        contribution_amount: Planned contribution amount (default 0)
+        contribution_frequency: Contribution frequency ('daily', 'weekly', 'bi-weekly', 'monthly')
+    
+    Returns:
+        Tuple of (DataFrame with savings progress, target fund amount)
+    
+    Raises:
+        ValueError: If expenses or coverage months are invalid
+    """
+    if monthly_expenses <= 0:
+        raise ValueError("Monthly expenses must be positive")
+    if coverage_months <= 0:
+        raise ValueError("Coverage months must be positive")
+    if current_savings < 0:
+        raise ValueError("Current savings cannot be negative")
+    if contribution_amount < 0:
+        raise ValueError("Contribution amount cannot be negative")
+    
     # Calculate total target emergency fund
     target_fund = monthly_expenses * coverage_months
+    
+    # Check if already at or above target
+    if current_savings >= target_fund:
+        return pd.DataFrame([{
+            "Month": 0,
+            "Savings Balance": current_savings,
+            "Target Fund": target_fund,
+            "Remaining Amount": 0
+        }]), target_fund
+    
+    # Check if contribution is zero and target not yet reached
+    if contribution_amount == 0:
+        raise ValueError(
+            f"Contribution amount is 0 but current savings ${current_savings:.2f} "
+            f"is below target ${target_fund:.2f}. Please enter a contribution amount."
+        )
 
     # Map contribution frequency to periods
     freq_map = {"daily": 365, "weekly": 52, "bi-weekly": 26, "monthly": 12}
     contribution_periods_per_year = freq_map.get(contribution_frequency.lower(), 12)
-    contribution_per_period = contribution_amount / (12 / contribution_periods_per_year)
+    monthly_contribution = contribution_amount * contribution_periods_per_year / 12
 
     # Savings progress
     balance = current_savings
     months_needed = 0
     results = []
 
-    while balance < target_fund:
+    while balance < target_fund and months_needed < MAX_SAVINGS_MONTHS:
         months_needed += 1
-        balance += contribution_per_period * (12 / contribution_periods_per_year)
+        balance += monthly_contribution
 
         results.append({
             "Month": months_needed,
@@ -33,6 +80,12 @@ def calculate_emergency_fund(monthly_expenses, coverage_months, current_savings=
     return df, target_fund
 
 def plot_emergency_fund(df, file_name):
+    """Generate and save emergency fund savings progress chart.
+    
+    Args:
+        df: DataFrame with savings progress
+        file_name: Output file path for the chart image
+    """
     # Plot savings progress
     plt.figure(figsize=(12, 7))
     plt.plot(df["Month"], df["Savings Balance"], label="Savings Balance", color="green")
@@ -47,6 +100,11 @@ def plot_emergency_fund(df, file_name):
     plt.close()
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -57,13 +115,19 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_chart_in_excel(file_name, image_file):
+    """Embed chart image into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        image_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     graph_sheet_name = "Graph"
     if graph_sheet_name not in workbook.sheetnames:
@@ -77,6 +141,12 @@ def embed_chart_in_excel(file_name, image_file):
     workbook.save(file_name)
 
 def export_to_excel(df, file_name):
+    """Export savings progress to Excel with formatting.
+    
+    Args:
+        df: DataFrame with savings progress
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Savings Progress")
     workbook = load_workbook(file_name)

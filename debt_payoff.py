@@ -1,9 +1,55 @@
+"""Debt payoff calculator with snowball and avalanche methods."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+# Maximum months to prevent infinite loops
+MAX_PAYOFF_MONTHS = 1200  # 100 years
+
+
 def calculate_debt_payoff(debts, method="snowball", extra_payment=0):
+    """
+    Calculate debt payoff schedule using snowball or avalanche method.
+    
+    Args:
+        debts: List of debt dicts with 'name', 'balance', 'interest_rate', 'min_payment'
+        method: Payoff method ('snowball' or 'avalanche')
+        extra_payment: Additional monthly payment to apply (default 0)
+    
+    Returns:
+        DataFrame with monthly payoff schedule
+    
+    Raises:
+        ValueError: If debts list is empty or contains invalid values
+    """
+    if not debts:
+        raise ValueError("At least one debt is required")
+    
+    for debt in debts:
+        if debt["balance"] <= 0:
+            raise ValueError(f"Debt '{debt['name']}' must have a positive balance")
+        if debt["interest_rate"] < 0:
+            raise ValueError(f"Debt '{debt['name']}' interest rate cannot be negative")
+        if debt["min_payment"] <= 0:
+            raise ValueError(f"Debt '{debt['name']}' must have a positive minimum payment")
+        
+        # Check if minimum payment covers at least the first month's interest
+        monthly_interest = debt["balance"] * (debt["interest_rate"] / 100) / 12
+        if debt["min_payment"] <= monthly_interest and extra_payment == 0:
+            raise ValueError(
+                f"Debt '{debt['name']}': minimum payment ${debt['min_payment']:.2f} "
+                f"does not cover monthly interest ${monthly_interest:.2f}. "
+                f"Add extra payment to pay off this debt."
+            )
+    
+    if extra_payment < 0:
+        raise ValueError("Extra payment cannot be negative")
+    
+    # Make a deep copy of debts to avoid modifying the original
+    debts = [{**d} for d in debts]
+    
     # Sort debts based on selected method
     if method == "snowball":
         debts = sorted(debts, key=lambda x: x["balance"])  # Smallest balance first
@@ -14,8 +60,8 @@ def calculate_debt_payoff(debts, method="snowball", extra_payment=0):
     results = []
     month = 1
 
-    # Iterate until all debts are paid off
-    while any(debt["balance"] > 0 for debt in debts):
+    # Iterate until all debts are paid off (with max months protection)
+    while any(debt["balance"] > 0 for debt in debts) and month <= MAX_PAYOFF_MONTHS:
         monthly_summary = {"Month": month, "Total Payment": 0, "Total Interest Paid": total_interest_paid}
         extra_remaining = extra_payment
 
@@ -51,6 +97,12 @@ def calculate_debt_payoff(debts, method="snowball", extra_payment=0):
     return pd.DataFrame(results)
 
 def plot_debt_payoff(df, file_name):
+    """Generate and save debt payoff progress chart.
+    
+    Args:
+        df: DataFrame with payoff schedule
+        file_name: Output file path for the chart image
+    """
     # Plot total debt balance over time
     plt.figure(figsize=(12, 7))
     for col in df.columns:
@@ -66,6 +118,11 @@ def plot_debt_payoff(df, file_name):
     plt.close()
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -76,13 +133,19 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_chart_in_excel(file_name, image_file):
+    """Embed chart image into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        image_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     graph_sheet_name = "Graph"
     if graph_sheet_name not in workbook.sheetnames:
@@ -96,6 +159,12 @@ def embed_chart_in_excel(file_name, image_file):
     workbook.save(file_name)
 
 def export_to_excel(df, file_name):
+    """Export debt payoff schedule to Excel with formatting.
+    
+    Args:
+        df: DataFrame with payoff schedule
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Debt Payoff Schedule")
     workbook = load_workbook(file_name)

@@ -1,10 +1,40 @@
-import math
+"""Compound interest calculator with inflation adjustment and Excel export."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+
 def compound_interest(principal, annual_rate, contribution, frequency, total_duration, is_duration_in_years, annual_increase=0, inflation_rate=0):
+    """
+    Calculate compound interest with periodic contributions.
+    
+    Args:
+        principal: Initial principal amount
+        annual_rate: Annual interest rate (percentage)
+        contribution: Contribution amount per period
+        frequency: Contribution frequency ('daily', 'weekly', 'bi-weekly', 'monthly', 'yearly')
+        total_duration: Duration value
+        is_duration_in_years: True if duration is in years, False if in months
+        annual_increase: Annual contribution increase rate (percentage, default 0)
+        inflation_rate: Expected inflation rate (percentage, default 0)
+    
+    Returns:
+        DataFrame with investment growth details
+    
+    Raises:
+        ValueError: If principal or annual_rate is invalid
+    """
+    if principal < 0:
+        raise ValueError("Principal cannot be negative")
+    if annual_rate < 0:
+        raise ValueError("Annual rate cannot be negative")
+    if contribution < 0:
+        raise ValueError("Contribution cannot be negative")
+    if total_duration <= 0:
+        raise ValueError("Duration must be positive")
+    
     freq_map = {"daily": 365, "weekly": 52, "bi-weekly": 26, "monthly": 12, "yearly": 1}
     periods_per_year = freq_map.get(frequency, 12)
     total_periods = total_duration * periods_per_year if is_duration_in_years else total_duration * periods_per_year // 12
@@ -53,6 +83,14 @@ def compound_interest(principal, annual_rate, contribution, frequency, total_dur
     return pd.DataFrame(results)
 
 def plot_investment_growth(df, file_name, display_by, inflation_rate):
+    """Generate and save investment growth chart.
+    
+    Args:
+        df: DataFrame with investment data
+        file_name: Output file path for the chart image
+        display_by: Display mode ('years' or 'months')
+        inflation_rate: Inflation rate used (to determine if real balance is shown)
+    """
     plt.figure(figsize=(12, 7))
     x_label = "Year" if display_by == "years" else "Period"
     plt.plot(df[x_label], df["Balance"], label="Nominal Balance", color="blue")
@@ -68,6 +106,11 @@ def plot_investment_growth(df, file_name, display_by, inflation_rate):
     plt.close()
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -78,13 +121,19 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_chart_in_excel(file_name, image_file):
+    """Embed chart image into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        image_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     graph_sheet_name = "Graph"
     if graph_sheet_name not in workbook.sheetnames:
@@ -98,6 +147,12 @@ def embed_chart_in_excel(file_name, image_file):
     workbook.save(file_name)
 
 def export_to_excel(df, file_name):
+    """Export investment data to Excel with formatting.
+    
+    Args:
+        df: DataFrame with investment data
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Detailed Data")
     workbook = load_workbook(file_name)

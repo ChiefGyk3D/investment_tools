@@ -1,13 +1,54 @@
+"""Loan vs savings comparison calculator."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+
 def loan_vs_savings(expense_amount, current_savings, loan_rate, loan_term_years, return_rate, inflation_rate, savings_term_months, savings_frequency="monthly"):
+    """
+    Compare financing an expense via loan vs saving for it.
+    
+    Args:
+        expense_amount: Target expense amount
+        current_savings: Current savings amount
+        loan_rate: Loan interest rate (percentage)
+        loan_term_years: Loan term in years
+        return_rate: Expected annual return on savings (percentage)
+        inflation_rate: Expected inflation rate (percentage)
+        savings_term_months: Timeframe for saving (in months)
+        savings_frequency: Savings contribution frequency (default 'monthly')
+    
+    Returns:
+        Dict with loan details, savings details, comparison, and savings data DataFrame
+    
+    Raises:
+        ValueError: If input values are invalid
+    """
+    if expense_amount <= 0:
+        raise ValueError("Expense amount must be positive")
+    if current_savings < 0:
+        raise ValueError("Current savings cannot be negative")
+    if loan_rate < 0:
+        raise ValueError("Loan rate cannot be negative")
+    if loan_term_years <= 0:
+        raise ValueError("Loan term must be positive")
+    if return_rate < 0:
+        raise ValueError("Return rate cannot be negative")
+    if savings_term_months <= 0:
+        raise ValueError("Savings term must be positive")
+    
     # Loan scenario calculations
     loan_term_months = loan_term_years * 12
     monthly_loan_rate = (loan_rate / 100) / 12
-    monthly_payment = expense_amount * monthly_loan_rate / (1 - (1 + monthly_loan_rate) ** -loan_term_months)
+    
+    # Handle 0% loan rate
+    if monthly_loan_rate == 0:
+        monthly_payment = expense_amount / loan_term_months
+    else:
+        monthly_payment = expense_amount * monthly_loan_rate / (1 - (1 + monthly_loan_rate) ** -loan_term_months)
+    
     total_loan_cost = monthly_payment * loan_term_months
     total_loan_interest = total_loan_cost - expense_amount
 
@@ -15,13 +56,17 @@ def loan_vs_savings(expense_amount, current_savings, loan_rate, loan_term_years,
     freq_map = {"daily": 365, "weekly": 52, "bi-weekly": 26, "monthly": 12}
     periods_per_year = freq_map.get(savings_frequency.lower(), 12)
     savings_periods = savings_term_months * (periods_per_year / 12)
-    inflation_adjusted_goal = expense_amount / ((1 + inflation_rate / 100) ** (savings_term_months / 12))
-    periodic_rate = (1 + return_rate / 100) ** (1 / periods_per_year) - 1
+    inflation_adjusted_goal = expense_amount / ((1 + inflation_rate / 100) ** (savings_term_months / 12)) if inflation_rate > 0 else expense_amount
+    periodic_rate = (1 + return_rate / 100) ** (1 / periods_per_year) - 1 if return_rate > 0 else 0
 
-    # Calculate required contribution per period
-    required_contribution = (inflation_adjusted_goal - current_savings * (1 + periodic_rate) ** savings_periods) / (
-        ((1 + periodic_rate) ** savings_periods - 1) / periodic_rate
-    )
+    # Calculate required contribution per period (handle zero return rate)
+    if periodic_rate == 0:
+        required_contribution = (inflation_adjusted_goal - current_savings) / savings_periods if savings_periods > 0 else 0
+    else:
+        growth_factor = (1 + periodic_rate) ** savings_periods
+        required_contribution = (inflation_adjusted_goal - current_savings * growth_factor) / (
+            (growth_factor - 1) / periodic_rate
+        )
 
     savings_data = []
     savings_balance = current_savings
@@ -64,6 +109,14 @@ def loan_vs_savings(expense_amount, current_savings, loan_rate, loan_term_years,
     }
 
 def plot_comparison(loan_cost, savings_balance, savings_data, file_name):
+    """Generate and save loan vs savings comparison chart.
+    
+    Args:
+        loan_cost: Total cost of loan
+        savings_balance: Final savings balance
+        savings_data: DataFrame with savings progression
+        file_name: Output file path for the chart image
+    """
     # Determine the x-axis label based on savings timeframe
     total_periods = len(savings_data)
     if total_periods > 24:  # If long timeframe, use years
@@ -87,6 +140,14 @@ def plot_comparison(loan_cost, savings_balance, savings_data, file_name):
     plt.close()
 
 def export_to_excel(loan_results, savings_results, savings_data, file_name):
+    """Export comparison results to Excel with formatting.
+    
+    Args:
+        loan_results: Dict with loan calculation results
+        savings_results: Dict with savings calculation results
+        savings_data: DataFrame with savings progression
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         # Loan details
         loan_df = pd.DataFrame([loan_results])
@@ -151,7 +212,7 @@ def export_to_excel(loan_results, savings_results, savings_data, file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
@@ -160,6 +221,12 @@ def export_to_excel(loan_results, savings_results, savings_data, file_name):
 
 
 def embed_chart_in_excel(file_name, chart_file):
+    """Embed comparison chart into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        chart_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     chart_sheet_name = "Comparison Chart"
     if chart_sheet_name not in workbook.sheetnames:

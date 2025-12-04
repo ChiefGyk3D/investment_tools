@@ -1,15 +1,45 @@
+"""Personal loan calculator with amortization schedule and Excel export."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+
 def personal_loan_calculator(loan_amount, interest_rate, loan_term, extra_payment=0):
+    """
+    Calculate personal loan amortization schedule.
+    
+    Args:
+        loan_amount: Total loan amount
+        interest_rate: Annual interest rate (percentage)
+        loan_term: Loan term in years
+        extra_payment: Extra monthly payment toward principal (default 0)
+    
+    Returns:
+        DataFrame with monthly amortization schedule
+    
+    Raises:
+        ValueError: If loan amount, interest rate, or loan term is invalid
+    """
+    if loan_amount <= 0:
+        raise ValueError("Loan amount must be positive")
+    if interest_rate < 0:
+        raise ValueError("Interest rate cannot be negative")
+    if loan_term <= 0:
+        raise ValueError("Loan term must be positive")
+    if extra_payment < 0:
+        raise ValueError("Extra payment cannot be negative")
+    
     # Monthly interest rate and total number of payments
     monthly_rate = (interest_rate / 100) / 12
     total_payments = loan_term * 12
 
-    # Calculate monthly payment
-    monthly_payment = loan_amount * monthly_rate / (1 - (1 + monthly_rate) ** -total_payments)
+    # Calculate monthly payment (handle 0% interest rate)
+    if monthly_rate == 0:
+        monthly_payment = loan_amount / total_payments
+    else:
+        monthly_payment = loan_amount * monthly_rate / (1 - (1 + monthly_rate) ** -total_payments)
 
     # Amortization schedule
     balance = loan_amount
@@ -41,6 +71,12 @@ def personal_loan_calculator(loan_amount, interest_rate, loan_term, extra_paymen
     return df
 
 def plot_loan_amortization(df, file_name):
+    """Generate and save loan amortization chart.
+    
+    Args:
+        df: DataFrame with amortization schedule
+        file_name: Output file path for the chart image
+    """
     # Plot principal vs. interest breakdown
     plt.figure(figsize=(12, 7))
     plt.plot(df["Month"], df["Remaining Balance"], label="Remaining Balance", color="blue")
@@ -55,6 +91,11 @@ def plot_loan_amortization(df, file_name):
     plt.close()
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -65,13 +106,19 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_chart_in_excel(file_name, image_file):
+    """Embed chart image into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        image_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     graph_sheet_name = "Graph"
     if graph_sheet_name not in workbook.sheetnames:
@@ -85,6 +132,12 @@ def embed_chart_in_excel(file_name, image_file):
     workbook.save(file_name)
 
 def export_to_excel(df, file_name):
+    """Export amortization schedule to Excel with formatting.
+    
+    Args:
+        df: DataFrame with amortization schedule
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Amortization Schedule")
     workbook = load_workbook(file_name)

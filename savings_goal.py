@@ -1,9 +1,41 @@
+"""Savings goal calculator with progress tracking and Excel export."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+
 def calculate_savings_goal(target_amount, current_savings, duration, is_years, return_rate, inflation_rate, contribution_frequency):
+    """
+    Calculate savings plan to reach a goal.
+    
+    Args:
+        target_amount: Target savings goal amount
+        current_savings: Current savings amount
+        duration: Duration value
+        is_years: True if duration is in years, False if in months
+        return_rate: Expected annual return rate (percentage)
+        inflation_rate: Expected inflation rate (percentage)
+        contribution_frequency: Contribution frequency
+    
+    Returns:
+        Tuple of (DataFrame with savings progress, required contribution per period)
+    
+    Raises:
+        ValueError: If target amount or duration is invalid
+    """
+    if target_amount <= 0:
+        raise ValueError("Target amount must be positive")
+    if current_savings < 0:
+        raise ValueError("Current savings cannot be negative")
+    if duration <= 0:
+        raise ValueError("Duration must be positive")
+    if return_rate < 0:
+        raise ValueError("Return rate cannot be negative")
+    if inflation_rate < 0:
+        raise ValueError("Inflation rate cannot be negative")
+    
     # Convert duration to months or years
     if is_years:
         total_months = duration * 12
@@ -18,13 +50,17 @@ def calculate_savings_goal(target_amount, current_savings, duration, is_years, r
     # Calculate inflation-adjusted goal
     adjusted_goal = target_amount / ((1 + inflation_rate / 100) ** (total_months / 12))
 
-    # Periodic return rate
-    periodic_rate = (1 + return_rate / 100) ** (1 / periods_per_year) - 1
+    # Periodic return rate (handle 0% return rate)
+    periodic_rate = (1 + return_rate / 100) ** (1 / periods_per_year) - 1 if return_rate > 0 else 0
 
-    # Calculate required contribution per period
-    contribution_per_period = (adjusted_goal - current_savings * (1 + periodic_rate) ** total_periods) / (
-        ((1 + periodic_rate) ** total_periods - 1) / periodic_rate
-    )
+    # Calculate required contribution per period (handle zero return rate)
+    if periodic_rate == 0:
+        contribution_per_period = (adjusted_goal - current_savings) / total_periods if total_periods > 0 else 0
+    else:
+        growth_factor = (1 + periodic_rate) ** total_periods
+        contribution_per_period = (adjusted_goal - current_savings * growth_factor) / (
+            (growth_factor - 1) / periodic_rate
+        )
 
     results = []
     balance = current_savings
@@ -45,6 +81,13 @@ def calculate_savings_goal(target_amount, current_savings, duration, is_years, r
     return df, contribution_per_period
 
 def plot_savings_goal(df, target_amount, file_name):
+    """Generate and save savings goal progress chart.
+    
+    Args:
+        df: DataFrame with savings progress
+        target_amount: Target savings goal amount
+        file_name: Output file path for the chart image
+    """
     # Plot savings progress
     plt.figure(figsize=(12, 7))
     plt.plot(df["Period"], df["End Balance"], label="Savings Balance", color="green")
@@ -59,6 +102,11 @@ def plot_savings_goal(df, target_amount, file_name):
     plt.close()
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -69,13 +117,19 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_chart_in_excel(file_name, image_file):
+    """Embed chart image into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        image_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     graph_sheet_name = "Graph"
     if graph_sheet_name not in workbook.sheetnames:
@@ -89,6 +143,12 @@ def embed_chart_in_excel(file_name, image_file):
     workbook.save(file_name)
 
 def export_to_excel(df, file_name):
+    """Export savings goal progress to Excel with formatting.
+    
+    Args:
+        df: DataFrame with savings progress
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Savings Goal Progress")
     workbook = load_workbook(file_name)

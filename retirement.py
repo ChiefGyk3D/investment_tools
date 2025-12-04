@@ -1,9 +1,43 @@
+"""Retirement savings planner with contribution calculations and Excel export."""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
+
 def retirement_savings_planner(current_age, retirement_age, target_amount, current_savings, annual_return, inflation_rate, contribution_frequency="monthly"):
+    """
+    Calculate retirement savings plan with required contributions.
+    
+    Args:
+        current_age: Current age in years
+        retirement_age: Target retirement age
+        target_amount: Target retirement savings amount
+        current_savings: Current savings amount
+        annual_return: Expected annual return rate (percentage)
+        inflation_rate: Expected inflation rate (percentage)
+        contribution_frequency: Contribution frequency (default 'monthly')
+    
+    Returns:
+        Tuple of (yearly summary DataFrame, period details DataFrame, periodic contribution amount)
+    
+    Raises:
+        ValueError: If age or financial values are invalid
+    """
+    if current_age < 0 or retirement_age < 0:
+        raise ValueError("Ages cannot be negative")
+    if retirement_age <= current_age:
+        raise ValueError("Retirement age must be greater than current age")
+    if target_amount <= 0:
+        raise ValueError("Target amount must be positive")
+    if current_savings < 0:
+        raise ValueError("Current savings cannot be negative")
+    if annual_return < 0:
+        raise ValueError("Annual return cannot be negative")
+    if inflation_rate < 0:
+        raise ValueError("Inflation rate cannot be negative")
+    
     years_to_retirement = retirement_age - current_age
 
     # Map contribution frequency to periods
@@ -59,6 +93,12 @@ def retirement_savings_planner(current_age, retirement_age, target_amount, curre
     return df_year_summary, df_period_details, periodic_contribution
 
 def plot_retirement_savings(df, file_name):
+    """Generate and save retirement savings growth chart.
+    
+    Args:
+        df: DataFrame with yearly summary
+        file_name: Output file path for the chart image
+    """
     # Plot savings progress
     plt.figure(figsize=(12, 7))
     plt.plot(df["Year"], df["End Balance"], label="Total Balance", color="green")
@@ -73,6 +113,11 @@ def plot_retirement_savings(df, file_name):
     plt.close()
 
 def auto_adjust_column_width(file_name):
+    """Auto-adjust column widths in Excel file to fit content.
+    
+    Args:
+        file_name: Path to the Excel file
+    """
     workbook = load_workbook(file_name)
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
@@ -83,13 +128,19 @@ def auto_adjust_column_width(file_name):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except (TypeError, AttributeError):
                     pass
             adjusted_width = max_length + 2
             sheet.column_dimensions[col_letter].width = adjusted_width
     workbook.save(file_name)
 
 def embed_chart_in_excel(file_name, image_file):
+    """Embed chart image into Excel file.
+    
+    Args:
+        file_name: Path to the Excel file
+        image_file: Path to the chart image file
+    """
     workbook = load_workbook(file_name)
     graph_sheet_name = "Graph"
     if graph_sheet_name not in workbook.sheetnames:
@@ -103,6 +154,13 @@ def embed_chart_in_excel(file_name, image_file):
     workbook.save(file_name)
 
 def export_to_excel(df_year_summary, df_period_details, file_name):
+    """Export retirement savings plan to Excel with formatting.
+    
+    Args:
+        df_year_summary: DataFrame with yearly summary
+        df_period_details: DataFrame with period-by-period details
+        file_name: Output Excel file path
+    """
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         df_year_summary.to_excel(writer, index=False, sheet_name="Yearly Summary")
         df_period_details.to_excel(writer, index=False, sheet_name="Detailed Breakdown")
