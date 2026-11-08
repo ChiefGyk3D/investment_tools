@@ -1,7 +1,9 @@
 """Stock investment growth calculator with dividend tracking and Excel export."""
 
-import pandas as pd
+import math
+
 import matplotlib.pyplot as plt
+import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 

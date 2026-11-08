@@ -1,7 +1,7 @@
 """Savings goal calculator with progress tracking and Excel export."""
 
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 
