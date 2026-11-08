@@ -1,7 +1,7 @@
 """Long weekend planner based on U.S. federal holidays."""
 
-import datetime
 import calendar
+import datetime
 
 # Define U.S. federal holidays with fixed and dynamic dates
 FEDERAL_HOLIDAYS = {
