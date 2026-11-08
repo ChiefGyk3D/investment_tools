@@ -1,0 +1,32 @@
+# Ruff, a byte-compile check on Python 3.11-3.14 and a workflow lint.
+# The jobs live in ChiefGyk3D/git-your-ship-together; this file only says what
+# is specific to investment_tools.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: ChiefGyk3D/git-your-ship-together/.github/workflows/python-ci.yml@9d6825dd4e0e4d524fca3733f416437bbd7851e1 # v1.31.0
+    permissions:
+      contents: read
+      id-token: write   # coverage upload job; the reusable workflow requests it
+    with:
+      python-versions: '["3.11", "3.12", "3.13", "3.14"]'
+      # The scripts are interactive and the repository has no tests, so the check
+      # compiles them without running them.
+      test-command: python -m compileall -q .
+      docker-build: false
+      egress-policy: block
